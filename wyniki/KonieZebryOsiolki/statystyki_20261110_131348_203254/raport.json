@@ -1,0 +1,39 @@
+{
+    "zbior": "KonieZebryOsiolki",
+    "liczba_klas": 3,
+    "liczba_obrazow": 1273,
+    "liczba_blednych": 0,
+    "klasy": [
+        {
+            "klasa": "donkey",
+            "train": 399,
+            "test": 100,
+            "razem": 499,
+            "procent": 39.2
+        },
+        {
+            "klasa": "horse",
+            "train": 384,
+            "test": 96,
+            "razem": 480,
+            "procent": 37.71
+        },
+        {
+            "klasa": "zebra",
+            "train": 234,
+            "test": 60,
+            "razem": 294,
+            "procent": 23.1
+        }
+    ],
+    "formaty": {
+        "JPEG": 1265,
+        "WEBP": 8
+    },
+    "srednia_szerokosc": 224.0,
+    "srednia_wysokosc": 224.0,
+    "minimalna_szerokosc": 224,
+    "maksymalna_szerokosc": 224,
+    "minimalna_wysokosc": 224,
+    "maksymalna_wysokosc": 224
+}

@@ -1,13 +1,49 @@
 
 import sys
-import torch
+import traceback
+from pathlib import Path
 
-print("=== ANALIZA DANYCH - TEST SRODOWISKA ===")
-print("Interpreter:", sys.executable)
-print("PyTorch:", torch.__version__)
-print("CUDA:", torch.cuda.is_available())
+from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtGui import QFont
 
-if torch.cuda.is_available():
-    print("GPU:", torch.cuda.get_device_name(0))
+from interfejs.okno_glowne import OknoGlowne
 
-print("Srodowisko gotowe!")
+
+# Katalog glowny projektu
+KATALOG_PROJEKTU = Path(__file__).resolve().parent
+
+
+def uruchom_aplikacje():
+    aplikacja = QApplication(sys.argv)
+
+    # Styl graficzny aplikacji
+    aplikacja.setStyle("Fusion")
+
+    # Czcionka interfejsu
+    czcionka = QFont("Segoe UI", 10)
+    aplikacja.setFont(czcionka)
+
+    try:
+        # Utworzenie glownego okna
+        okno = OknoGlowne()
+
+        # Rozmiar poczatkowy okna
+        okno.resize(1200, 800)
+
+        # Minimalny rozmiar okna
+        okno.setMinimumSize(950, 650)
+
+        # Wyswietlenie aplikacji
+        okno.show()
+
+        # Uruchomienie petli zdarzen
+        return aplikacja.exec()
+
+    except Exception as blad:
+        szczegoly = traceback.format_exc()
+        print(szczegoly, file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(uruchom_aplikacje())
