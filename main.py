@@ -2,42 +2,27 @@
 import sys
 import traceback
 from pathlib import Path
-
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QFont
 
 from interfejs.okno_glowne import OknoGlowne
 
-
-# Katalog glowny projektu
-KATALOG_PROJEKTU = Path(__file__).resolve().parent
-
+KATALOG_PROJEKTU = Path(__file__).resolve().parent # Katalog glowny projektu
 
 def uruchom_aplikacje():
     aplikacja = QApplication(sys.argv)
+    aplikacja.setStyle("Fusion")     # Styl graficzny aplikacji
 
-    # Styl graficzny aplikacji
-    aplikacja.setStyle("Fusion")
-
-    # Czcionka interfejsu
-    czcionka = QFont("Segoe UI", 10)
+    czcionka = QFont("Segoe UI", 10)     # Czcionka interfejsu
     aplikacja.setFont(czcionka)
 
     try:
-        # Utworzenie glownego okna
-        okno = OknoGlowne()
+        okno = OknoGlowne()        # Utworzenie glownego okna
+        okno.resize(1200, 800)        # Rozmiar poczatkowy okna
+        okno.setMinimumSize(950, 650)         # Minimalny rozmiar okna
+        okno.show()         # Wyswietlenie aplikacji
 
-        # Rozmiar poczatkowy okna
-        okno.resize(1200, 800)
-
-        # Minimalny rozmiar okna
-        okno.setMinimumSize(950, 650)
-
-        # Wyswietlenie aplikacji
-        okno.show()
-
-        # Uruchomienie petli zdarzen
-        return aplikacja.exec()
+        return aplikacja.exec()         # Uruchomienie petli zdarzen
 
     except Exception as blad:
         szczegoly = traceback.format_exc()
