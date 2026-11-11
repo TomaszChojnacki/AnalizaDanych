@@ -29,14 +29,66 @@ METODY = {
 }
 
 
-def zmodyfikuj_obraz(obraz, metoda, generator):
+
+def sprawdz_ustawienia(ustawienia):
+    """Kontroluje parametry augmentacji."""
+
+    if not (
+        0.5 <= ustawienia["skala_min"]
+        <= ustawienia["skala_max"] <= 2.0
+    ):
+        raise ValueError(
+            "Skala minimalna musi być mniejsza lub równa "
+            "maksymalnej. Dozwolony zakres: 0.5–2.0."
+        )
+
+    zakresy = {
+        "kat_obrotu": (0, 90),
+        "przesuniecie": (0, 40),
+        "jasnosc": (0, 60),
+        "kontrast": (0, 60),
+        "nasycenie": (0, 60),
+        "szum": (0, 60)
+    }
+
+    for nazwa, (minimum, maksimum) in zakresy.items():
+        wartosc = ustawienia[nazwa]
+
+        if not minimum <= wartosc <= maksimum:
+            raise ValueError(
+                f"Nieprawidłowa wartość: {nazwa}."
+            )
+
+
+def zmodyfikuj_obraz(
+    obraz,
+    metoda,
+    generator,
+    ustawienia=None
+):
     """
-    Zwraca nowy obraz po wybranej transformacji.
-    Nie modyfikuje oryginalnego pliku.
+    Wykonuje wybraną augmentację obrazu
+    z parametrami ustawionymi przez użytkownika.
     """
+
+    if ustawienia is None:
+        ustawienia = {
+            "kat_obrotu": 15,
+            "skala_min": 0.85,
+            "skala_max": 1.15,
+            "przesuniecie": 10,
+            "jasnosc": 20,
+            "kontrast": 20,
+            "nasycenie": 30,
+            "szum": 12
+        }
+
+    sprawdz_ustawienia(ustawienia)
+
     obraz = obraz.convert("RGB")
     szerokosc, wysokosc = obraz.size
 
+    # KOMBINACJA METOD
     if metoda == "Wszystkie metody":
         metody = [
             "Obrót",
@@ -47,19 +99,24 @@ def zmodyfikuj_obraz(obraz, metoda, generator):
         ]
 
         generator.shuffle(metody)
+        liczba_metod = generator.randint(2, 4)
 
-        # Losowa kombinacja od 2 do 4 transformacji
-        liczba = generator.randint(2, 4)
-
-        for wybrana in metody[:liczba]:
+        for wybrana in metody[:liczba_metod]:
             obraz = zmodyfikuj_obraz(
-                obraz, wybrana, generator
+                obraz,
+                wybrana,
+                generator,
+                ustawienia
             )
 
         return obraz
 
+    # OBRÓT
     if metoda == "Obrót":
-        kat = generator.uniform(-15, 15)
+        kat = generator.uniform(
+            -ustawienia["kat_obrotu"],
+            ustawienia["kat_obrotu"]
+        )
 
         return obraz.rotate(
             kat,
@@ -67,13 +124,19 @@ def zmodyfikuj_obraz(obraz, metoda, generator):
             fillcolor=(128, 128, 128)
         )
 
+    # SKALOWANIE
     if metoda == "Skalowanie":
-        skala = generator.uniform(0.85, 1.15)
+        skala = generator.uniform(
+            ustawienia["skala_min"],
+            ustawienia["skala_max"]
+        )
 
         odwrotnosc = 1.0 / skala
+
         przesuniecie_x = (
             szerokosc * (1 - odwrotnosc) / 2
         )
+
         przesuniecie_y = (
             wysokosc * (1 - odwrotnosc) / 2
         )
@@ -89,15 +152,15 @@ def zmodyfikuj_obraz(obraz, metoda, generator):
             fillcolor=(128, 128, 128)
         )
 
+    # PRZESUNIĘCIE
     if metoda == "Przesunięcie":
-        dx = generator.randint(
-            -int(szerokosc * 0.1),
-            int(szerokosc * 0.1)
-        )
-        dy = generator.randint(
-            -int(wysokosc * 0.1),
-            int(wysokosc * 0.1)
-        )
+        udzial = ustawienia["przesuniecie"] / 100
+
+        max_dx = int(szerokosc * udzial)
+        max_dy = int(wysokosc * udzial)
+
+        dx = generator.randint(-max_dx, max_dx)
+        dy = generator.randint(-max_dy, max_dy)
 
         return obraz.transform(
             obraz.size,
@@ -107,22 +170,46 @@ def zmodyfikuj_obraz(obraz, metoda, generator):
             fillcolor=(128, 128, 128)
         )
 
+    # ZMIANA KOLORÓW
     if metoda == "Zmiana kolorów":
+        jasnosc = ustawienia["jasnosc"] / 100
+        kontrast = ustawienia["kontrast"] / 100
+        nasycenie = ustawienia["nasycenie"] / 100
+
         obraz = ImageEnhance.Brightness(
             obraz
-        ).enhance(generator.uniform(0.8, 1.2))
+        ).enhance(
+            generator.uniform(
+                1 - jasnosc,
+                1 + jasnosc
+            )
+        )
 
         obraz = ImageEnhance.Contrast(
             obraz
-        ).enhance(generator.uniform(0.8, 1.2))
+        ).enhance(
+            generator.uniform(
+                1 - kontrast,
+                1 + kontrast
+            )
+        )
 
-        return ImageEnhance.Color(
+        obraz = ImageEnhance.Color(
             obraz
-        ).enhance(generator.uniform(0.7, 1.3))
+        ).enhance(
+            generator.uniform(
+                1 - nasycenie,
+                1 + nasycenie
+            )
+        )
 
+        return obraz
+
+    # SZUM GAUSSOWSKI
     if metoda == "Szum gaussowski":
         tablica = np.asarray(
-            obraz, dtype=np.float32
+            obraz,
+            dtype=np.float32
         )
 
         ziarno = generator.randrange(2**32)
@@ -130,7 +217,7 @@ def zmodyfikuj_obraz(obraz, metoda, generator):
 
         szum = generator_numpy.normal(
             loc=0,
-            scale=12,
+            scale=ustawienia["szum"],
             size=tablica.shape
         )
 
@@ -145,6 +232,7 @@ def zmodyfikuj_obraz(obraz, metoda, generator):
     )
 
 
+
 def pobierz_obrazy(katalog):
     return sorted(
         plik for plik in katalog.rglob("*")
@@ -153,7 +241,13 @@ def pobierz_obrazy(katalog):
     )
 
 
-def przygotuj_przyklady(obrazy_klas, katalog_raportu, metoda):
+def przygotuj_przyklady(
+    obrazy_klas,
+    katalog_raportu,
+    metoda,
+    ustawienia,
+    ziarno=42
+):
     """
     Przygotowuje tabelę porównawczą augmentacji.
 
@@ -192,7 +286,7 @@ def przygotuj_przyklady(obrazy_klas, katalog_raportu, metoda):
 
         # Jeden losowy obraz z danej klasy
         generator_wyboru = random.Random(
-            42 + numer_klasy
+            ziarno + numer_klasy
         )
 
         wybrany_obraz = generator_wyboru.choice(
@@ -227,13 +321,14 @@ def przygotuj_przyklady(obrazy_klas, katalog_raportu, metoda):
             metody_podgladu
         ):
             generator = random.Random(
-                1000 + numer_klasy * 100 + numer_metody
+                ziarno + 1000 + numer_klasy * 100 + numer_metody
             )
 
             zmieniony = zmodyfikuj_obraz(
                 oryginal.copy(),
                 nazwa_metody,
-                generator
+                generator,
+                ustawienia
             )
 
             nazwa_pliku = (
@@ -270,7 +365,9 @@ def wykonaj_augmentacje(
     metoda="Wszystkie metody",
     liczba_kopii=2,
     komunikat=None,
-    postep=None
+    postep=None,
+    ustawienia=None,
+    ziarno=42
 ):
     """
     Tworzy osobny wariant danych do treningu YOLO.
@@ -280,6 +377,20 @@ def wykonaj_augmentacje(
     - Zachowuje val i test bez transformacji.
     - Tworzy raport porównawczy.
     """
+
+    if ustawienia is None:
+        ustawienia = {
+            "kat_obrotu": 15,
+            "skala_min": 0.85,
+            "skala_max": 1.15,
+            "przesuniecie": 10,
+            "jasnosc": 20,
+            "kontrast": 20,
+            "nasycenie": 30,
+            "szum": 12
+        }
+
+    sprawdz_ustawienia(ustawienia)
 
     if metoda not in METODY:
         raise ValueError("Nieprawidłowa metoda augmentacji.")
@@ -352,7 +463,7 @@ def wykonaj_augmentacje(
     katalog_wariantu.mkdir(parents=True)
     katalog_raportu.mkdir(parents=True)
 
-    generator = random.Random(42)
+    generator = random.Random(ziarno)
     przetworzono = 0
     statystyki = []
     przyklad = None
@@ -382,7 +493,10 @@ def wykonaj_augmentacje(
                     oryginal = oryginal.convert("RGB")
                     for numer in range(1, liczba_kopii + 1):
                         nowy = zmodyfikuj_obraz(
-                            oryginal, metoda, generator
+                            oryginal,
+                            metoda,
+                            generator,
+                            ustawienia
                         )
 
                         identyfikator_pliku = (
@@ -455,7 +569,9 @@ def wykonaj_augmentacje(
         przyklady_augmentacji = przygotuj_przyklady(
             obrazy_klas=obrazy_klas,
             katalog_raportu=katalog_raportu,
-            metoda=metoda
+            metoda=metoda,
+            ustawienia=ustawienia,
+            ziarno=ziarno
         )
 
 
@@ -463,13 +579,15 @@ def wykonaj_augmentacje(
             "zbior": nazwa_zbioru,
             "metoda": metoda,
             "liczba_kopii": liczba_kopii,
+            "ustawienia": ustawienia.copy(),
             "klasy": statystyki,
             "liczba_przed": sum(rekord["przed"] for rekord in statystyki),
             "liczba_po": sum(rekord["po"] for rekord in statystyki),
             "przyklad": przyklad,
             "przyklady_augmentacji": przyklady_augmentacji,
             "katalog_danych": str(katalog_wariantu),
-            "katalog_raportu": str(katalog_raportu)
+            "katalog_raportu": str(katalog_raportu),
+            "ziarno": ziarno,
         }
 
 

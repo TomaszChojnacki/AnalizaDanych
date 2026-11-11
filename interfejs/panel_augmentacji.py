@@ -7,7 +7,9 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QComboBox,
     QSpinBox, QProgressBar, QTextEdit,
-    QScrollArea, QMessageBox, QTableWidget, QHeaderView,QAbstractItemView
+    QScrollArea, QMessageBox, QTableWidget,
+    QHeaderView,QAbstractItemView,QDoubleSpinBox,
+    QGroupBox,QFormLayout,
 )
 
 from moduly.augmentacja_obrazow import (
@@ -25,12 +27,21 @@ class PracownikAugmentacji(QThread):
     blad = Signal(str)
 
     def __init__(
-        self, zbior, metoda, liczba_kopii, parent=None
+            self,
+            zbior,
+            metoda,
+            liczba_kopii,
+            ustawienia,
+            ziarno=42,
+            parent=None
     ):
         super().__init__(parent)
+
         self.zbior = zbior
         self.metoda = metoda
         self.liczba_kopii = liczba_kopii
+        self.ustawienia = ustawienia.copy()
+        self.ziarno = ziarno
 
     def run(self):
         try:
@@ -38,6 +49,8 @@ class PracownikAugmentacji(QThread):
                 nazwa_zbioru=self.zbior,
                 metoda=self.metoda,
                 liczba_kopii=self.liczba_kopii,
+                ustawienia=self.ustawienia,
+                ziarno=self.ziarno,
                 komunikat=self.komunikat.emit,
                 postep=self.postep.emit
             )
@@ -63,6 +76,21 @@ class PanelAugmentacji(QWidget):
 
         self.utworz_interfejs()
         self.odswiez_zbior()
+
+    def utworz_pole(self, minimum, maksimum, wartosc,
+                    krok=1.0, sufiks="", miejsca=1):
+        """Tworzy pole liczbowe parametru augmentacji."""
+
+        pole = QDoubleSpinBox()
+        pole.setRange(minimum, maksimum)
+        pole.setValue(wartosc)
+        pole.setSingleStep(krok)
+        pole.setDecimals(miejsca)
+        pole.setSuffix(sufiks)
+        pole.setMinimumWidth(135)
+
+        return pole
+
 
     def utworz_interfejs(self):
         glowny = QVBoxLayout(self)
@@ -99,7 +127,155 @@ class PanelAugmentacji(QWidget):
         self.wybor_metody.setCurrentText(
             "Wszystkie metody"
         )
+
+        # ZIARNO LOSOWOSCI
+        wiersz_ziarna = QHBoxLayout()
+
+        wiersz_ziarna.addWidget(
+            QLabel("Ziarno losowości (seed):")
+        )
+
+        self.pole_ziarno = QSpinBox()
+        self.pole_ziarno.setRange(0, 999999999)
+        self.pole_ziarno.setValue(42)
+        self.pole_ziarno.setToolTip(
+            "Ziarno decyduje o powtarzalności "
+            "losowania zdjęć i transformacji."
+        )
+
+        wiersz_ziarna.addWidget(self.pole_ziarno)
+        wiersz_ziarna.addStretch()
+
+        uklad.addLayout(wiersz_ziarna)
+
         uklad.addWidget(self.wybor_metody)
+
+
+        # PARAMETRY AUGMENTACJI
+        self.grupy_ustawien = {}
+
+        # OBRÓT
+        grupa_obrot = QGroupBox("Ustawienia obrotu")
+        formularz_obrot = QFormLayout(grupa_obrot)
+
+        self.pole_obrot = self.utworz_pole(
+            0, 90, 15, 1, "°"
+        )
+
+        formularz_obrot.addRow(
+            "Maksymalny kąt obrotu (±):",
+            self.pole_obrot
+        )
+
+        self.grupy_ustawien["Obrót"] = grupa_obrot
+        uklad.addWidget(grupa_obrot)
+
+        # SKALOWANIE
+        grupa_skala = QGroupBox("Ustawienia skalowania")
+        formularz_skala = QFormLayout(grupa_skala)
+
+        self.pole_skala_min = self.utworz_pole(
+            0.5, 2.0, 0.85, 0.05, " ×", 2
+        )
+
+        self.pole_skala_max = self.utworz_pole(
+            0.5, 2.0, 1.15, 0.05, " ×", 2
+        )
+
+        formularz_skala.addRow(
+            "Minimalna skala:",
+            self.pole_skala_min
+        )
+        formularz_skala.addRow(
+            "Maksymalna skala:",
+            self.pole_skala_max
+        )
+
+        self.grupy_ustawien["Skalowanie"] = grupa_skala
+        uklad.addWidget(grupa_skala)
+
+        # PRZESUNIĘCIE
+        grupa_przesuniecie = QGroupBox(
+            "Ustawienia przesunięcia"
+        )
+        formularz_przesuniecie = QFormLayout(
+            grupa_przesuniecie
+        )
+
+        self.pole_przesuniecie = self.utworz_pole(
+            0, 40, 10, 1, " %"
+        )
+
+        formularz_przesuniecie.addRow(
+            "Maksymalne przesunięcie (±):",
+            self.pole_przesuniecie
+        )
+
+        self.grupy_ustawien["Przesunięcie"] = (
+            grupa_przesuniecie
+        )
+        uklad.addWidget(grupa_przesuniecie)
+
+        # ZMIANA KOLORÓW
+        grupa_kolory = QGroupBox(
+            "Ustawienia zmiany kolorów"
+        )
+        formularz_kolory = QFormLayout(grupa_kolory)
+
+        self.pole_jasnosc = self.utworz_pole(
+            0, 60, 20, 1, " %"
+        )
+
+        self.pole_kontrast = self.utworz_pole(
+            0, 60, 20, 1, " %"
+        )
+
+        self.pole_nasycenie = self.utworz_pole(
+            0, 60, 30, 1, " %"
+        )
+
+        formularz_kolory.addRow(
+            "Zmiana jasności (±):",
+            self.pole_jasnosc
+        )
+        formularz_kolory.addRow(
+            "Zmiana kontrastu (±):",
+            self.pole_kontrast
+        )
+        formularz_kolory.addRow(
+            "Zmiana nasycenia (±):",
+            self.pole_nasycenie
+        )
+
+        self.grupy_ustawien["Zmiana kolorów"] = grupa_kolory
+        uklad.addWidget(grupa_kolory)
+
+        # SZUM GAUSSOWSKI
+        grupa_szum = QGroupBox(
+            "Ustawienia szumu gaussowskiego"
+        )
+        formularz_szum = QFormLayout(grupa_szum)
+
+        self.pole_szum = self.utworz_pole(
+            0, 60, 12, 1, " σ"
+        )
+
+        formularz_szum.addRow(
+            "Odchylenie standardowe szumu:",
+            self.pole_szum
+        )
+
+        self.grupy_ustawien["Szum gaussowski"] = grupa_szum
+        uklad.addWidget(grupa_szum)
+
+        # ZMIANA WIDOCZNOŚCI PO WYBORZE METODY
+        self.wybor_metody.currentTextChanged.connect(
+            self.aktualizuj_widocznosc_ustawien
+        )
+
+        self.aktualizuj_widocznosc_ustawien(
+            self.wybor_metody.currentText()
+        )
 
         wiersz = QHBoxLayout()
         wiersz.addWidget(
@@ -254,6 +430,41 @@ class PanelAugmentacji(QWidget):
             }
         """)
 
+
+    def aktualizuj_widocznosc_ustawien(self, metoda):
+        """Pokazuje parametry właściwe dla wybranej metody."""
+
+        pokaz_wszystkie = (
+                metoda == "Wszystkie metody"
+        )
+
+        for nazwa, grupa in self.grupy_ustawien.items():
+            grupa.setVisible(
+                pokaz_wszystkie or nazwa == metoda
+            )
+
+    def pobierz_ustawienia(self):
+        """Odczytuje aktualne parametry z formularza."""
+
+        ustawienia = {
+            "kat_obrotu": self.pole_obrot.value(),
+            "skala_min": self.pole_skala_min.value(),
+            "skala_max": self.pole_skala_max.value(),
+            "przesuniecie": self.pole_przesuniecie.value(),
+            "jasnosc": self.pole_jasnosc.value(),
+            "kontrast": self.pole_kontrast.value(),
+            "nasycenie": self.pole_nasycenie.value(),
+            "szum": self.pole_szum.value()
+        }
+
+        if ustawienia["skala_min"] > ustawienia["skala_max"]:
+            raise ValueError(
+                "Minimalna skala nie może być większa "
+                "od maksymalnej."
+            )
+
+        return ustawienia
+
     def odswiez_zbior(self):
         nazwa = self.pobierz_zbior()
         self.etykieta_zbioru.setText(
@@ -279,10 +490,23 @@ class PanelAugmentacji(QWidget):
             "Trwa przetwarzanie obrazów..."
         )
 
+
+        try:
+            ustawienia = self.pobierz_ustawienia()
+        except ValueError as blad:
+            QMessageBox.warning(
+                self,
+                "Nieprawidłowe parametry",
+                str(blad)
+            )
+            return
+
         self.pracownik = PracownikAugmentacji(
             zbior=nazwa,
             metoda=self.wybor_metody.currentText(),
             liczba_kopii=self.liczba_kopii.value(),
+            ustawienia=ustawienia,
+            ziarno=self.pole_ziarno.value(),
             parent=self
         )
 
@@ -298,12 +522,36 @@ class PanelAugmentacji(QWidget):
         self.pracownik.blad.connect(
             self.pokaz_blad
         )
+
+        # Po zakończeniu augmentacji odblokuj ustawienia
         self.pracownik.finished.connect(
-            lambda: self.przycisk_start.setEnabled(True)
+            self.zakoncz_augmentacje
         )
 
+        self.wybor_metody.setEnabled(False)
+        self.liczba_kopii.setEnabled(False)
+
+        for grupa in self.grupy_ustawien.values():
+            grupa.setEnabled(False)
+
+        # Zablokuj zmienianie ustawień podczas augmentacji
         self.przycisk_start.setEnabled(False)
+        self.pole_ziarno.setEnabled(False)
+
+        # Uruchom augmentację
         self.pracownik.start()
+
+    def zakoncz_augmentacje(self):
+        """Odblokowuje kontrolki po zakończeniu augmentacji."""
+
+        self.przycisk_start.setEnabled(True)
+        self.pole_ziarno.setEnabled(True)
+        self.wybor_metody.setEnabled(True)
+        self.liczba_kopii.setEnabled(True)
+
+        for grupa in self.grupy_ustawien.values():
+            grupa.setEnabled(True)
+
 
     def pokaz_obraz(self, etykieta, sciezka, w, h):
         pixmap = QPixmap(str(sciezka))
